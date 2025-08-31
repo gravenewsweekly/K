@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - KKStudentNotes.in</title>
+</head>
+<body>
+    <!-- Navigation -->
+    <header>
+        <h1>KKStudentNotes.in</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="profile.html">Profile</a></li>
+                <li><a href="notes.html">Notes</a></li>
+                <li id="userNavItem"><a href="#" id="usernameLink">User</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Edit Your Profile</h2>
+        
+        <div id="authMessage"></div>
+        
+        <form id="editProfileForm" style="display: none;">
+            <div>
+                <label for="nickname">Nickname (Mandatory):</label>
+                <input type="text" id="nickname" name="nickname" required>
+            </div>
+            
+            <div>
+                <label for="realname">Real Name (Mandatory):</label>
+                <input type="text" id="realname" name="realname" required>
+            </div>
+            
+            <div>
+                <label for="studentId">Student ID (Mandatory):</label>
+                <input type="text" id="studentId" name="studentId" required>
+            </div>
+            
+            <div>
+                <label for="email">Email Address (Mandatory):</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div>
+                <label for="phone">Phone Number (Optional):</label>
+                <input type="tel" id="phone" name="phone">
+            </div>
+            
+            <div>
+                <label for="college">College Name (Mandatory):</label>
+                <input type="text" id="college" name="college" required>
+            </div>
+            
+            <div>
+                <label for="description">About Me (Optional):</label>
+                <textarea id="description" name="description" rows="4"></textarea>
+            </div>
+            
+            <button type="submit">Save Profile</button>
+        </form>
+    </main>
+
+    <script>
+        // API configuration
+        const BIN_ID = '68b364de43b1c97be931500a';
+        const API_KEY = '$2a$10$arC6RzK1aSqD3JwbT6KovOCr7Za05NoUdtTxlfLm7SYymMhHNYp4S';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        
+        // DOM elements
+        const authMessage = document.getElementById('authMessage');
+        const editProfileForm = document.getElementById('editProfileForm');
+        const userNavItem = document.getElementById('userNavItem');
+        const usernameLink = document.getElementById('usernameLink');
+        
+        // Check if user is logged in
+        function checkAuthentication() {
+            const currentUser = localStorage.getItem('currentUser');
+            
+            if (!currentUser) {
+                authMessage.innerHTML = 'You must be logged in to edit your profile. Redirecting to registration page...';
+                setTimeout(() => {
+                    window.location.href = 'register.html';
+                }, 3000);
+                return null;
+            }
+            
+            return JSON.parse(currentUser);
+        }
+        
+        // Load user data into form
+        async function loadUserData(username) {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user data');
+                }
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                // Find current user
+                const user = users.find(u => u.username === username);
+                
+                if (user) {
+                    // Populate form fields
+                    document.getElementById('nickname').value = user.nickname || '';
+                    document.getElementById('realname').value = user.realname || '';
+                    document.getElementById('studentId').value = user.studentId || '';
+                    document.getElementById('email').value = user.email || '';
+                    document.getElementById('phone').value = user.phone || '';
+                    document.getElementById('college').value = user.college || '';
+                    document.getElementById('description').value = user.description || '';
+                    
+                    // Show the form
+                    editProfileForm.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                authMessage.innerHTML = 'Error loading profile data. Please try again.';
+            }
+        }
+        
+        // Update user profile
+        async function updateUserProfile(updatedData) {
+            try {
+                // First get the current data
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch current data');
+                }
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                
+                // Find current user index
+                const userIndex = users.findIndex(u => u.username === currentUser.username);
+                
+                if (userIndex !== -1) {
+                    // Update user data
+                    users[userIndex] = { ...users[userIndex], ...updatedData };
+                    
+                    // Update the database
+                    const updateResponse = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Master-Key': API_KEY,
+                            'X-Bin-Versioning': 'false'
+                        },
+                        body: JSON.stringify({ users: users })
+                    });
+                    
+                    if (!updateResponse.ok) {
+                        throw new Error('Failed to update user profile');
+                    }
+                    
+                    return true;
+                }
+                
+                return false;
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                return false;
+            }
+        }
+        
+        // Handle form submission
+        editProfileForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            
+            const updatedData = {
+                nickname: document.getElementById('nickname').value,
+                realname: document.getElementById('realname').value,
+                studentId: document.getElementById('studentId').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                college: document.getElementById('college').value,
+                description: document.getElementById('description').value
+            };
+            
+            const success = await updateUserProfile(updatedData);
+            
+            if (success) {
+                authMessage.innerHTML = 'Profile updated successfully! Redirecting to your profile...';
+                setTimeout(() => {
+                    window.location.href = `profile.html?user=${currentUser.username}`;
+                }, 2000);
+            } else {
+                authMessage.innerHTML = 'Error updating profile. Please try again.';
+            }
+        });
+        
+        // Initialize page
+        const currentUser = checkAuthentication();
+        if (currentUser) {
+            usernameLink.textContent = currentUser.username;
+            loadUserData(currentUser.username);
+        }
+    </script>
+</body>
+</html>
