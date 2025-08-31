@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Notes - KKStudentNotes.in</title>
+</head>
+<body>
+    <!-- Navigation -->
+    <header>
+        <h1>KKStudentNotes.in</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="profile.html">Profile</a></li>
+                <li><a href="edit-profile.html">Edit Profile</a></li>
+                <li id="userNavItem"><a href="#" id="usernameLink">User</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h2>My Notes</h2>
+        
+        <div id="authMessage"></div>
+        
+        <div id="notesContainer" style="display: none;">
+            <button onclick="showNoteModal('public')">Create Public Note</button>
+            <button onclick="showNoteModal('private')">Create Private Note</button>
+            
+            <h3>Private Notes</h3>
+            <div id="privateNotesList"></div>
+            
+            <h3>Public Notes</h3>
+            <div id="publicNotesList"></div>
+        </div>
+    </main>
+
+    <!-- Note Modal -->
+    <div id="noteModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid black; z-index: 1000;">
+        <h3 id="modalTitle">Create Note</h3>
+        <textarea id="noteContent" rows="10" cols="50" placeholder="Write your note here..."></textarea>
+        <div>
+            <button onclick="insertEmoji('😀')">😀</button>
+            <button onclick="insertEmoji('😂')">😂</button>
+            <button onclick="insertEmoji('😍')">😍</button>
+            <button onclick="insertEmoji('🤔')">🤔</button>
+            <button onclick="insertEmoji('👍')">👍</button>
+            <button onclick="insertEmoji('🎓')">🎓</button>
+            <button onclick="insertEmoji('📚')">📚</button>
+            <button onclick="insertEmoji('✏️')">✏️</button>
+        </div>
+        <div>
+            <button onclick="saveNote()">Save Note</button>
+            <button onclick="closeModal()">Cancel</button>
+        </div>
+        <input type="hidden" id="noteType">
+        <input type="hidden" id="editNoteId">
+    </div>
+
+    <script>
+        // API configuration
+        const BIN_ID = '68b364de43b1c97be931500a';
+        const API_KEY = '$2a$10$arC6RzK1aSqD3JwbT6KovOCr7Za05NoUdtTxlfLm7SYymMhHNYp4S';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        
+        // DOM elements
+        const authMessage = document.getElementById('authMessage');
+        const notesContainer = document.getElementById('notesContainer');
+        const privateNotesList = document.getElementById('privateNotesList');
+        const publicNotesList = document.getElementById('publicNotesList');
+        const userNavItem = document.getElementById('userNavItem');
+        const usernameLink = document.getElementById('usernameLink');
+        const noteModal = document.getElementById('noteModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const noteContent = document.getElementById('noteContent');
+        const noteTypeInput = document.getElementById('noteType');
+        const editNoteIdInput = document.getElementById('editNoteId');
+        
+        let currentUser = null;
+        let allNotes = [];
+        
+        // Check if user is logged in
+        function checkAuthentication() {
+            const user = localStorage.getItem('currentUser');
+            
+            if (!user) {
+                authMessage.innerHTML = 'You must be logged in to access notes. Redirecting to registration page...';
+                setTimeout(() => {
+                    window.location.href = 'register.html';
+                }, 3000);
+                return null;
+            }
+            
+            return JSON.parse(user);
+        }
+        
+        // Load user notes
+        async function loadUserNotes() {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch notes data');
+                }
+                
+                const data = await response.json();
+                allNotes = data.record.notes || [];
+                
+                // Filter notes for current user
+                const userNotes = allNotes.filter(note => note.user === currentUser.username);
+                
+                // Display private notes
+                const privateNotes = userNotes.filter(note => note.type === 'private');
+                displayNotes(privateNotes, privateNotesList, 'private');
+                
+                // Display public notes
+                const publicNotes = userNotes.filter(note => note.type === 'public');
+                displayNotes(publicNotes, publicNotesList, 'public');
+                
+                // Show the notes container
+                notesContainer.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading notes:', error);
+                authMessage.innerHTML = 'Error loading notes. Please try again.';
+            }
+        }
+        
+        // Display notes in the appropriate section
+        function displayNotes(notes, container, type) {
+            if (notes.length === 0) {
+                container.innerHTML = `<p>No ${type} notes yet.</p>`;
+                return;
+            }
+            
+            let html = '';
+            notes.forEach(note => {
+                html += `
+                    <div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+                        <p>${note.content}</p>
+                        <p><small>Created: ${new Date(note.createdAt).toLocaleString()}</small></p>
+                        <button onclick="editNote('${note.id}', '${type}')">Edit</button>
+                        <button onclick="deleteNote('${note.id}')">Delete</button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Show note modal for creating/editing notes
+        function showNoteModal(type, noteId = null) {
+            noteTypeInput.value = type;
+            modalTitle.textContent = `${type === 'public' ? 'Public' : 'Private'} Note`;
+            
+            if (noteId) {
+                // Editing existing note
+                const note = allNotes.find(n => n.id === noteId);
+                if (note) {
+                    noteContent.value = note.content;
+                    editNoteIdInput.value = noteId;
+                }
+            } else {
+                // Creating new note
+                noteContent.value = '';
+                editNoteIdInput.value = '';
+            }
+            
+            noteModal.style.display = 'block';
+        }
+        
+        // Close the modal
+        function closeModal() {
+            noteModal.style.display = 'none';
+        }
+        
+        // Insert emoji into note content
+        function insertEmoji(emoji) {
+            noteContent.value += emoji;
+        }
+        
+        // Save note to database
+        async function saveNote() {
+            const content = noteContent.value.trim();
+            const type = noteTypeInput.value;
+            const noteId = editNoteIdInput.value;
+            
+            if (!content) {
+                alert('Note content cannot be empty!');
+                return;
+            }
+            
+            try {
+                // First get the current data
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch current data');
+                }
+                
+                const data = await response.json();
+                const notes = data.record.notes || [];
+                
+                if (noteId) {
+                    // Update existing note
+                    const noteIndex = notes.findIndex(n => n.id === noteId);
+                    if (noteIndex !== -1) {
+                        notes[noteIndex].content = content;
+                        notes[noteIndex].updatedAt = new Date().toISOString();
+                    }
+                } else {
+                    // Create new note
+                    const newNote = {
+                        id: Date.now().toString(),
+                        user: currentUser.username,
+                        type: type,
+                        content: content,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    notes.push(newNote);
+                }
+                
+                // Update the database
+                const updateResponse = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY,
+                        'X-Bin-Versioning': 'false'
+                    },
+                    body: JSON.stringify({ 
+                        users: data.record.users || [],
+                        notes: notes
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error('Failed to save note');
+                }
+                
+                closeModal();
+                loadUserNotes(); // Reload notes
+            } catch (error) {
+                console.error('Error saving note:', error);
+                alert('Error saving note. Please try again.');
+            }
+        }
+        
+        // Edit existing note
+        function editNote(noteId, type) {
+            showNoteModal(type, noteId);
+        }
+        
+        // Delete note
+        async function deleteNote(noteId) {
+            if (!confirm('Are you sure you want to delete this note?')) {
+                return;
+            }
+            
+            try {
+                // First get the current data
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch current data');
+                }
+                
+                const data = await response.json();
+                const notes = data.record.notes || [];
+                
+                // Filter out the deleted note
+                const updatedNotes = notes.filter(note => note.id !== noteId);
+                
+                // Update the database
+                const updateResponse = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY,
+                        'X-Bin-Versioning': 'false'
+                    },
+                    body: JSON.stringify({ 
+                        users: data.record.users || [],
+                        notes: updatedNotes
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error('Failed to delete note');
+                }
+                
+                loadUserNotes(); // Reload notes
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                alert('Error deleting note. Please try again.');
+            }
+        }
+        
+        // Initialize page
+        currentUser = checkAuthentication();
+        if (currentUser) {
+            usernameLink.textContent = currentUser.username;
+            loadUserNotes();
+        }
+    </script>
+</body>
+</html>
