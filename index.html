@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KKStudentNotes.in - College Student Platform</title>
+</head>
+<body>
+    <!-- Header with Navigation -->
+    <header>
+        <h1>KKStudentNotes.in</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html" id="homeLink">Home</a></li>
+                <li><a href="about.html">About Us</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="tos.html">Terms of Service</a></li>
+                <li><a href="privacy.html">Privacy Policy</a></li>
+                <li id="userNavItem"><a href="#" id="usernameLink">Register</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Search Section -->
+    <section>
+        <h2>Search for Students</h2>
+        <form id="searchForm">
+            <input type="text" id="searchInput" placeholder="Enter username to search..." required>
+            <button type="submit">Search</button>
+        </form>
+        <div id="searchResults"></div>
+    </section>
+
+    <!-- Welcome Message -->
+    <section id="welcomeSection">
+        <h2>Welcome to KKStudentNotes.in</h2>
+        <p>This platform is exclusively for students of our college to connect and share notes.</p>
+        
+        <h3>What You Can Do:</h3>
+        <ul>
+            <li>Search for other students in our college</li>
+            <li>View public profiles with basic information</li>
+            <li>See public notes shared by other students</li>
+            <li>Create and manage your own public and private notes</li>
+            <li>Update your profile information</li>
+        </ul>
+        
+        <h3>Important Guidelines:</h3>
+        <ul>
+            <li>Do not share inappropriate content</li>
+            <li>Respect other students' privacy</li>
+            <li>Do not misuse others' contact information</li>
+            <li>All notes are subject to moderation</li>
+            <li>Report any suspicious activity immediately</li>
+        </ul>
+    </section>
+
+    <!-- User Menu (Hidden by default) -->
+    <div id="userMenu" style="display: none;">
+        <h3>User Menu</h3>
+        <ul>
+            <li><a href="login.html" id="logoutLink">Log Out</a></li>
+            <li><a href="edit-profile.html">Edit Profile</a></li>
+            <li><a href="notes.html">Notes</a></li>
+            <li><a href="profile.html" id="profileLink">My Profile</a></li>
+        </ul>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 KKStudentNotes.in - For College Students Only</p>
+    </footer>
+
+    <script>
+        // API configuration
+        const BIN_ID = '68b364de43b1c97be931500a';
+        const API_KEY = '$2a$10$arC6RzK1aSqD3JwbT6KovOCr7Za05NoUdtTxlfLm7SYymMhHNYp4S';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        
+        // DOM elements
+        const userNavItem = document.getElementById('userNavItem');
+        const usernameLink = document.getElementById('usernameLink');
+        const userMenu = document.getElementById('userMenu');
+        const searchForm = document.getElementById('searchForm');
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const profileLink = document.getElementById('profileLink');
+        const logoutLink = document.getElementById('logoutLink');
+        
+        // Check if user is logged in
+        function checkLoggedIn() {
+            const currentUser = localStorage.getItem('currentUser');
+            
+            if (currentUser) {
+                const user = JSON.parse(currentUser);
+                usernameLink.textContent = user.username;
+                
+                // Set profile link
+                profileLink.href = `profile.html?user=${user.username}`;
+                
+                // Show user menu when username is clicked
+                usernameLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+        }
+        
+        // Search for users
+        async function searchUsers(query) {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user data');
+                }
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                // Filter users based on search query
+                const results = users.filter(user => 
+                    user.username.toLowerCase().includes(query.toLowerCase())
+                );
+                
+                displaySearchResults(results);
+            } catch (error) {
+                console.error('Error searching users:', error);
+                searchResults.innerHTML = 'Error searching users. Please try again later.';
+            }
+        }
+        
+        // Display search results
+        function displaySearchResults(users) {
+            if (users.length === 0) {
+                searchResults.innerHTML = '<p>No users found matching your search.</p>';
+                return;
+            }
+            
+            let html = '<ul>';
+            users.forEach(user => {
+                html += `
+                    <li>
+                        <a href="profile.html?user=${user.username}">${user.username}</a> 
+                        - ${user.course} (${user.year})
+                    </li>
+                `;
+            });
+            html += '</ul>';
+            
+            searchResults.innerHTML = html;
+        }
+        
+        // Handle search form submission
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = searchInput.value.trim();
+            
+            if (query) {
+                searchUsers(query);
+            }
+        });
+        
+        // Initialize page
+        checkLoggedIn();
+    </script>
+</body>
+</html>
