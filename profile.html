@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - KKStudentNotes.in</title>
+</head>
+<body>
+    <!-- Navigation -->
+    <header>
+        <h1>KKStudentNotes.in</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="notes.html">Notes</a></li>
+                <li id="userNavItem"><a href="#" id="usernameLink">User</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h2>User Profile</h2>
+        
+        <div id="profileContent">
+            <div id="profileInfo">
+                <h3 id="profileUsername">Loading...</h3>
+                <p><strong>Nickname:</strong> <span id="profileNickname"></span></p>
+                <p><strong>Real Name:</strong> <span id="profileRealname"></span></p>
+                <p><strong>Student ID:</strong> <span id="profileStudentId"></span></p>
+                <p><strong>Course:</strong> <span id="profileCourse"></span></p>
+                <p><strong>Year:</strong> <span id="profileYear"></span></p>
+                <p><strong>College:</strong> <span id="profileCollege"></span></p>
+                <p><strong>Email:</strong> <span id="profileEmail"></span></p>
+                <p><strong>Phone:</strong> <span id="profilePhone"></span></p>
+                <p><strong>About Me:</strong> <span id="profileDescription"></span></p>
+            </div>
+            
+            <div id="editProfileButton" style="display: none;">
+                <button onclick="editProfile()">Edit Profile</button>
+            </div>
+            
+            <div id="publicNotesSection">
+                <h3>Public Notes</h3>
+                <div id="publicNotesList"></div>
+            </div>
+        </div>
+        
+        <div id="errorMessage"></div>
+    </main>
+
+    <script>
+        // API configuration
+        const BIN_ID = '68b364de43b1c97be931500a';
+        const API_KEY = '$2a$10$arC6RzK1aSqD3JwbT6KovOCr7Za05NoUdtTxlfLm7SYymMhHNYp4S';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        
+        // DOM elements
+        const profileContent = document.getElementById('profileContent');
+        const profileUsername = document.getElementById('profileUsername');
+        const profileNickname = document.getElementById('profileNickname');
+        const profileRealname = document.getElementById('profileRealname');
+        const profileStudentId = document.getElementById('profileStudentId');
+        const profileCourse = document.getElementById('profileCourse');
+        const profileYear = document.getElementById('profileYear');
+        const profileCollege = document.getElementById('profileCollege');
+        const profileEmail = document.getElementById('profileEmail');
+        const profilePhone = document.getElementById('profilePhone');
+        const profileDescription = document.getElementById('profileDescription');
+        const editProfileButton = document.getElementById('editProfileButton');
+        const publicNotesList = document.getElementById('publicNotesList');
+        const errorMessage = document.getElementById('errorMessage');
+        const userNavItem = document.getElementById('userNavItem');
+        const usernameLink = document.getElementById('usernameLink');
+        
+        // Get username from URL parameters
+        function getUsernameFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('user');
+        }
+        
+        // Load profile data
+        async function loadProfileData() {
+            const username = getUsernameFromURL();
+            
+            if (!username) {
+                errorMessage.innerHTML = 'No user specified. Please search for a user from the homepage.';
+                return;
+            }
+            
+            try {
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch profile data');
+                }
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                const notes = data.record.notes || [];
+                
+                // Find the requested user
+                const user = users.find(u => u.username === username);
+                
+                if (!user) {
+                    errorMessage.innerHTML = 'User not found.';
+                    return;
+                }
+                
+                // Display user info
+                profileUsername.textContent = `${username}'s Profile`;
+                profileNickname.textContent = user.nickname || 'Not provided';
+                profileRealname.textContent = user.realname || 'Not provided';
+                profileStudentId.textContent = user.studentId || 'Not provided';
+                profileCourse.textContent = user.course || 'Not provided';
+                profileYear.textContent = user.year || 'Not provided';
+                profileCollege.textContent = user.college || 'Not provided';
+                profileEmail.textContent = user.email || 'Not provided';
+                profilePhone.textContent = user.phone || 'Not provided';
+                profileDescription.textContent = user.description || 'Not provided';
+                
+                // Check if current user is viewing their own profile
+                const currentUser = localStorage.getItem('currentUser');
+                if (currentUser) {
+                    const currentUserObj = JSON.parse(currentUser);
+                    usernameLink.textContent = currentUserObj.username;
+                    
+                    if (currentUserObj.username === username) {
+                        editProfileButton.style.display = 'block';
+                    }
+                }
+                
+                // Display public notes for this user
+                const userPublicNotes = notes.filter(note => 
+                    note.user === username && note.type === 'public'
+                );
+                
+                displayPublicNotes(userPublicNotes);
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                errorMessage.innerHTML = 'Error loading profile. Please try again.';
+            }
+        }
+        
+        // Display public notes
+        function displayPublicNotes(notes) {
+            if (notes.length === 0) {
+                publicNotesList.innerHTML = '<p>No public notes yet.</p>';
+                return;
+            }
+            
+            let html = '';
+            notes.forEach(note => {
+                html += `
+                    <div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+                        <p>${note.content}</p>
+                        <p><small>Created: ${new Date(note.createdAt).toLocaleString()}</small></p>
+                    </div>
+                `;
+            });
+            
+            publicNotesList.innerHTML = html;
+        }
+        
+        // Redirect to edit profile page
+        function editProfile() {
+            const username = getUsernameFromURL();
+            window.location.href = `edit-profile.html`;
+        }
+        
+        // Initialize page
+        loadProfileData();
+    </script>
+</body>
+</html>
