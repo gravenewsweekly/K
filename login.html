@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - KKStudentNotes.in</title>
+</head>
+<body>
+    <!-- Navigation -->
+    <header>
+        <h1>KKStudentNotes.in</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="register.html">Register</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Login to Your Account</h2>
+        
+        <form id="loginForm">
+            <div>
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit">Login</button>
+        </form>
+        
+        <p>Don't have an account? <a href="register.html">Register here</a></p>
+        
+        <div id="message"></div>
+    </main>
+
+    <script>
+        // API configuration
+        const BIN_ID = '68b364de43b1c97be931500a';
+        const API_KEY = '$2a$10$arC6RzK1aSqD3JwbT6KovOCr7Za05NoUdtTxlfLm7SYymMhHNYp4S';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const messageDiv = document.getElementById('message');
+        
+        // Check if user is already logged in
+        function checkAlreadyLoggedIn() {
+            const currentUser = localStorage.getItem('currentUser');
+            
+            if (currentUser) {
+                messageDiv.innerHTML = 'You are already logged in. Redirecting to homepage...';
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // Authenticate user
+        async function authenticateUser(username, password) {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user data');
+                }
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                // Find user with matching credentials
+                const user = users.find(u => u.username === username && u.password === password);
+                
+                return user;
+            } catch (error) {
+                console.error('Error during authentication:', error);
+                return null;
+            }
+        }
+        
+        // Handle form submission
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                messageDiv.innerHTML = 'Please enter both username and password.';
+                return;
+            }
+            
+            const user = await authenticateUser(username, password);
+            
+            if (user) {
+                // Store user in localStorage
+                localStorage.setItem('currentUser', JSON.stringify({
+                    username: user.username,
+                    loggedInAt: new Date().toISOString()
+                }));
+                
+                messageDiv.innerHTML = 'Login successful! Redirecting to homepage...';
+                
+                // Redirect to index.html after 2 seconds
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+            } else {
+                messageDiv.innerHTML = 'Invalid username or password. Please try again.';
+            }
+        });
+        
+        // Initialize page
+        checkAlreadyLoggedIn();
+    </script>
+</body>
+</html>
